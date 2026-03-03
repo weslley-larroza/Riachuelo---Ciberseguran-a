@@ -1,0 +1,219 @@
+
+## Simulando um Ataque de Brute Force de Senhas com Medusa e Kali Linux nos protocolos de rede FTP (transferência de arquivos), HTTP (web) e SMB (compartilhamento de recursos).
+
+
+### Configuração Inicial
+
+1º - Instalar o Kali Linux e o Metasploitable no Virtual Box.
+
+2º - Iniciar os dois e fazer um snapshot no metasploitable para recuperar o trabalho em caso de falha da máquina. Como? Na guia do virtualbox com o metasploitable aberto clicar em máquina > criar snapshot > adicionar nome e descrição do snapshot > clicar em ok.
+
+![snapshot](https://i.imgur.com/2nRB5Fb.jpeg)
+
+&nbsp;
+
+3º - Acessar o metasploitable com o login padrão: msfadmin e senha padrão: msfadmin
+
+![metasploitable](https://i.imgur.com/lgGIC5s.jpeg)
+
+&nbsp;
+
+4º - Acionar o comando ifconfig no metasploitable e anotar o ip da máquina que estará na linha inet addr. Este será o ip utilizado para os testes.
+
+![ifconfig](https://i.imgur.com/tLIbBeu.jpeg)
+
+&nbsp;
+
+5º - Alcançando a máquina vulnerável no metasploitable
+
+Como? Abra o Terminal do Kali Linux e digite o comando ping -c 3 nú.me.ro.ip
+
+Se houver resposta saberemos que a comunicação entre as duas máquinas está funcionando corretamente.
+
+![ping](https://i.imgur.com/zgwdhzk.jpeg)
+
+&nbsp;
+
+### Simulando Ataque FTP Simulando um cenário de auditoria em um servidor FTP que pode conter falhas de segurança
+
+1º - Enumeração para descobrir quais serviços estão disponíveis no sistema com suspeita de vulnerabilidade. comando: nmap -sV -p 21,22,80,445,139 nú.me.ro.ip
+
+Este comando escaneia as portas 21,22,80,445 e 139. O parâmetro -sV identifica a versão do serviço que está rodando em cada porta.
+
+Se a porta ftp estiver aberta tentaremos conectá-la diretamente.
+
+![Enumeração](https://i.imgur.com/KK3ZyLB.jpeg)
+
+&nbsp;
+
+2º - Conectando diretamente ao ftp para confirmar se está ativo.
+
+Comando: ftp nú.me.ro.ip
+
+Caso a conexão aconteça pedirá o login e a senha. Como ainda não sabemos nenhum dos dois precisaremos fazer um ataque brute force (força bruta) utilizando a ferramenta Medusa para tentar descobri-los. Antes disso temos que criar duas listas: uma com possíveis nomes de usuários e outra com senhas comuns.
+
+![ftp login errado](https://i.imgur.com/SXoqjZ3.jpeg)
+
+Para sair do ftp é só digitar quit e apertar enter e para limpar a tela do terminal é só digitar clear e apertar enter
+
+&nbsp;
+
+### Criando nomes de usuários e senhas comuns (wordlists) em diferentes arquivos e rodando o ataque
+
+1º - Comandos para criar e salvar no Kali Linux arquivo de texto com possíveis nomes de usuários e arquivo com senhas comuns.
+
+Comando usuários: echo -e "user\nmsfadmin\nadmin\nroot" > users.txt
+
+Comando senhas: echo -e "123456\npassword\nqwerty\nmsfadmin" > pass.txt
+
+![wordlists](https://i.imgur.com/OUaP9Fd.jpeg)
+
+&nbsp;
+
+2º - Rodando o ataque com a Medusa
+
+Comando: medusa -h nú.me.ro.ip -U users.txt -P pass.txt -M ftp -t6
+
+Onde -t6 significa que estamos usando 6 threads simultâneas, o que torna o ataque mais rápido.
+
+No ataque foram encontrados o login msfadmin e a senha msfadmin como credenciais válidas. Isso significa que conseguimos acessar o sistema via ftp com essas credenciais.
+
+![](https://i.imgur.com/SSLel4z.jpeg)
+
+&nbsp;
+
+3º - Validando manualmente o acesso via ftp com as credenciais encontradas
+
+Comando: ftp nú.me.ro.ip
+
+![login ftp](https://i.imgur.com/vlWsj7h.jpeg)
+
+&nbsp;
+
+### Simulando Ataque web (http) Simulando ataque brute force em formulários de login web (http) no sistema dvwa
+
+1º - Acessar, no navegador firefox do Kali Linux, o endereço nú.me.ro.ip/dvwa/login.php para visualizar a página de teste de login do dvwa.
+
+Na sequência abrir o painel de ferramentas do desenvolvedor na página de teste de login do dvwa clicando em f12 e em seguida clicar na guia network, na navegação do tipo POST e em Request, que nos mostrará tudo o que o navegador está enviando e recebendo durante a interação, incluindo os nomes dos parâmetros que o servidor espera receber. A Medusa vai simular em cima destes parâmetros.
+
+![dvwa](https://i.imgur.com/KO9hGQA.jpeg)
+
+&nbsp;
+
+2º - No terminal do Kali, após criadas as wordlists de usuários e de senhas, rodar o seguinte comando com a Medusa.
+
+Comando: medusa -h nú.me.ro.ip -U users.txt -P pass.txt -M http
+
+-m PAGE:'/dvwa/login.php'
+
+-m FORM:'username=^USER^&password=^PASS^&Login=Login'
+
+-m 'FAIL=Login failed' -t 6
+
+As credenciais corretas encontradas aparecerão com a palavra SUCCESS.
+
+Em seguida utilizamos o primeiro login e senha encontrados para acessar o sistema.
+
+![medusa http](https://i.imgur.com/U4ci2QC.jpeg)
+
+&nbsp;
+
+### Simulando Ataque SMB (Server Message Block) Simulando ataques de enumeração e spraying contra o serviço SMB (Server Message Block)
+
+1º - Rodar a enumeração de usuários com enum4linux
+
+Comando: enum4linux -a 192.168.56.101 | tee enum4_output.txt
+
+2º - Na sequência podemos abrir o arquivo do comando que acabamos de rodar e visualizar usuários que sejam possíveis alvos de ataques. O número rid é o identificador relativo do usuário no sistema. Sempre que houver nomes de usuários genéricos como null ou interrogação geralmente são de usuários mais vulneráveis.
+
+Comando: less enum4_output.txt
+
+![rid](https://i.imgur.com/GnDALRm.jpeg)
+
+&nbsp;
+
+3º - Criando wordlists de usuários
+
+No comando anterior conseguimos acesso aos nomes dos usuários reais, agora precisamos criar nosso arquivo de alvos e nosso arquivo de senhas.
+
+Comando: echo -e "user\nmsfadmin\nservice" > smb_users.txt
+
+Comando: echo -e "password\n123456\nWelcome123\nmsfadmin" > senhas_spray
+
+![wordlists smb](https://i.imgur.com/hyk6zdF.jpeg)
+
+Ao contrário do brute force, que testa muitas senhas em um único usuário, o password spraying testa poucas senhas em muitos usuários.
+
+&nbsp;
+
+4º - Rodando ataque com Medusa
+
+Comando: medusa -h nú.me.ro.ip -U smb_users.txt -P senhas_spray.txt -M smbnt -t 2 -T 50
+
+Onde: 
+
+-h é o IP do nosso alvo. 
+
+-U é a lista de usuários descoberta na enumeração. 
+
+-P é a lista de senhas fracas. 
+
+-M smbnt é o módulo específico para ataques via smb. 
+
+-t 2 é uma das duas threads simultâneas, que simulam 2 usuários testando senhas. 
+
+-T 50 significa até 50 hosts em paralelo.
+
+![medusa smb](https://i.imgur.com/V5D345c.jpeg)
+
+&nbsp;
+
+5º - Testando o acesso utilizando smbclient
+
+Verifica se teremos acesso como administrador através das credenciais encontradas no ataque anterior.
+
+Comando: smbclient -L //192.168.56.101 -U msfadmin
+
+![acesso smb](https://i.imgur.com/D1oJen1.jpeg)
+
+&nbsp;
+
+## Recomendações de Mitigação 
+
+Para se proteger de ataques de força bruta, como os executados com ferramentas como o Medusa no Kali Linux, é necessário adotar uma abordagem em camadas que combine políticas de senhas fortes, proteção na camada de rede e sistemas de monitoramento. 
+
+### 1. Fortalecer as políticas de autenticação
+   
+Essa é a primeira e mais importante linha de defesa.
+
+Senhas fortes: Exija senhas longas (mínimo de 14 caracteres), complexas (misturando letras maiúsculas e minúsculas, números e símbolos) e que não sejam baseadas em informações pessoais óbvias.
+
+Autenticação multifator (MFA): Implemente a autenticação de dois ou mais fatores para exigir uma segunda forma de verificação (como um código enviado para o celular) após o uso da senha. Isso torna a descoberta da senha inútil sem o segundo fator.
+
+Limite de tentativas de login: Configure o sistema para bloquear temporariamente um usuário ou endereço IP após um número limitado de tentativas de login incorretas. O Kali Linux, por exemplo, pode ser configurado para essa proteção.
+
+CAPTCHA: Use sistemas CAPTCHA ou reCAPTCHA que exigem uma interação humana para liberar o acesso, impedindo a automação dos ataques. 
+
+### 2. Implementar medidas de segurança na rede
+   
+Essas ações visam proteger a infraestrutura antes que o ataque chegue à autenticação. 
+
+Firewalls: Configure um firewall para detectar e bloquear tráfego de rede suspeito. Um firewall de aplicação web (WAF) pode ser especialmente útil para proteger servidores web.
+
+Monitoramento de IP: Monitore endereços IP que estão tentando acessar o sistema. Se um único IP fizer um número incomum de tentativas de login, ele deve ser automaticamente bloqueado.
+
+Honeypots: Crie "honeypots" — servidores falsos que imitam serviços legítimos. Esses servidores atraem e prendem os invasores, registrando a atividade maliciosa e alertando sobre o ataque, protegendo os sistemas reais.
+
+Alterar portas padrão: Mude a porta padrão de serviços como o SSH (de 22 para outra). Isso não impede o ataque, mas o torna mais difícil para invasores que usam scripts automáticos. 
+
+### 3. Melhorar a segurança do sistema
+   
+Essa etapa envolve práticas de gerenciamento de sistemas para fortalecer a defesa contra ataques internos e externos.
+
+Atualizações regulares: Mantenha todos os sistemas e aplicações atualizados para corrigir vulnerabilidades que poderiam ser exploradas por atacantes.
+
+Remover contas não usadas: Desative ou remova contas de usuários que não são mais necessárias. Isso diminui a superfície de ataque.
+
+Criptografar dados sensíveis: Garanta que os dados armazenados, incluindo as senhas, sejam criptografados para que não sejam acessíveis mesmo em caso de violação.
+
+
