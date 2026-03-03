@@ -1,8 +1,6 @@
 
 ## Simulando Ataques de Brute Force de Senhas com Medusa e Kali Linux
 
-![warning image](https://www.sandsteinwandern.de/wandern/wp-content/uploads/2019/11/giphy-hack2.gif) 
-
 ### Neste projeto simulei um ataque de Brute Force de Senhas com Medusa e Kali Linux nos protocolos de rede FTP (transferência de arquivos), HTTP (web) e SMB (compartilhamento de recursos).
 
 Um ataque de força bruta é um método cibernético que utiliza tentativa e erro para adivinhar credenciais de login, chaves de criptografia ou páginas da web ocultas. O termo "força bruta" se refere ao uso de softwares automatizados para testar sistematicamente todas as combinações possíveis de caracteres até encontrar a correta. Esse tipo de ataque é uma das técnicas mais antigas e ainda eficazes contra senhas fracas.
